@@ -1,0 +1,35 @@
+name: Swarm UX Test
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  issue_comment:
+    types: [created]
+concurrency:
+  group: swarm-pr-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+jobs:
+  swarm:
+    # Runs on PR events, or when someone comments `/swarm run` on the PR.
+    # With the GitHub App, whether PR events actually run a test is governed by the
+    # repo's run-mode (Swarm → Integrations): "automatic" runs on every PR open,
+    # "manual" only runs on a `/swarm run` comment. `/swarm run` always runs.
+    if: github.event_name == 'pull_request' || (github.event.issue.pull_request && contains(github.event.comment.body, '/swarm run'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      id-token: write   # for the Swarm GitHub App (OIDC) auth path; harmless if using apiKey
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # On a `/swarm run` comment the default checkout is the base branch; pin to the PR head.
+          ref: ${{ github.event.issue.pull_request && format('refs/pull/{0}/head', github.event.issue.number) || github.ref }}
+      - uses: AyushSagar16/swarm-action@v1
+        with:
+          # Omit `apiKey` when the Swarm GitHub App is installed — the Action
+          # authenticates via OIDC and pulls the personas/task you set up with `/swarm`.
+          apiKey: ${{ secrets.SWARM_API_KEY }}
+        env:
+          SWARM_TEST_USERNAME: ${{ secrets.SWARM_TEST_USERNAME }}
+          SWARM_TEST_PASSWORD: ${{ secrets.SWARM_TEST_PASSWORD }}
