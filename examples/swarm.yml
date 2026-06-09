@@ -1,0 +1,30 @@
+name: Swarm UX Test
+on:
+  pull_request:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+concurrency:
+  group: swarm-pr-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+jobs:
+  swarm:
+    if: github.event_name == 'pull_request' || (github.event.issue.pull_request && github.event.comment.body == '/swarm')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      id-token: write   # for the Swarm GitHub App (OIDC) auth path; harmless if using apiKey
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # On a `/swarm` comment the default checkout is the base branch; pin to the PR head.
+          ref: ${{ github.event.issue.pull_request && format('refs/pull/{0}/head', github.event.issue.number) || github.ref }}
+      - uses: AyushSagar16/swarm-action@v1
+        with:
+          # Optional when the Swarm GitHub App is installed:
+          apiKey: ${{ secrets.SWARM_API_KEY }}
+        env:
+          SWARM_TEST_USERNAME: ${{ secrets.SWARM_TEST_USERNAME }}
+          SWARM_TEST_PASSWORD: ${{ secrets.SWARM_TEST_PASSWORD }}
